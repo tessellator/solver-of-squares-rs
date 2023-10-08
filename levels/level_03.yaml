@@ -1,0 +1,10 @@
+blocks:
+  - color: blue
+    direction: down
+    position: [0, 5]
+    goal: [0, 0]
+
+  - color: red
+    direction: left
+    position: [2, 3]
+    goal: [-2, 2]

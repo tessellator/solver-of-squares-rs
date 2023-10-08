@@ -1,0 +1,28 @@
+blocks:
+  - color: green
+    direction: down
+    position: [-1, 2]
+    goal: [1, 1]
+
+  - color: red
+    direction: right
+    position: [-1, 1]
+    goal: [2, 0]
+
+  - color: navy
+    direction: left
+    position: [2, 2]
+    goal: [0, 0]
+
+arrows:
+  - direction: down
+    position: [-1, 2]
+
+  - direction: right
+    position: [-1, 1]
+
+  - direction: left
+    position: [2, 2]
+
+  - direction: up
+    position: [1, 0]
