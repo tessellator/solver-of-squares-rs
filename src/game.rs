@@ -4,6 +4,7 @@ use serde::de::{MapAccess, Visitor};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
+use std::hash::Hash;
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -213,6 +214,23 @@ impl<'a> BoardState<'a> {
             self.push_square(&collided_block, direction);
         }
     }
+
+    fn fingerprint(&self) -> String {
+        let mut keys: Vec<&Color> = self.squares.keys().collect();
+        keys.sort();
+
+        let mut fingerprint = String::new();
+
+        for key in keys {
+            let block = self.squares.get(key).unwrap();
+            fingerprint.push_str(&format!(
+                "{},{},{},{}\t",
+                key, block.position[0], block.position[1], block.direction
+            ));
+        }
+
+        fingerprint
+    }
 }
 
 impl<'a> Ord for BoardState<'a> {
@@ -238,6 +256,12 @@ impl<'a> PartialEq for BoardState<'a> {
 
 impl<'a> Eq for BoardState<'a> {}
 
+impl<'a> Hash for BoardState<'a> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.fingerprint().hash(state);
+    }
+}
+
 impl<'a> State<i32> for BoardState<'a> {
     fn successors(&self) -> Vec<Self> {
         self.squares.keys().map(|k| self.move_square(k)).collect()
@@ -260,22 +284,5 @@ impl<'a> State<i32> for BoardState<'a> {
 
     fn cost(&self) -> i32 {
         self.cost
-    }
-
-    fn fingerprint(&self) -> String {
-        let mut keys: Vec<&Color> = self.squares.keys().collect();
-        keys.sort();
-
-        let mut fingerprint = String::new();
-
-        for key in keys {
-            let block = self.squares.get(key).unwrap();
-            fingerprint.push_str(&format!(
-                "{},{},{},{}\t",
-                key, block.position[0], block.position[1], block.direction
-            ));
-        }
-
-        fingerprint
     }
 }

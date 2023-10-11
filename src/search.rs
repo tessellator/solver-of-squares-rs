@@ -1,13 +1,20 @@
 use num::Num;
 use std::cmp::Reverse;
+use std::collections::hash_map::DefaultHasher;
 use std::collections::{BinaryHeap, HashSet};
+use std::hash::{Hash, Hasher};
 
-pub trait State<T: Num>: Sized + Ord {
+pub trait State<T: Num>: Sized + Ord + Hash {
     fn successors(&self) -> Vec<Self>;
     fn is_goal(&self) -> bool;
     fn distance_to_goal(&self) -> T;
     fn cost(&self) -> T;
-    fn fingerprint(&self) -> String;
+}
+
+fn hash<T: Num, S: State<T>>(state: &S) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    state.hash(&mut hasher);
+    hasher.finish()
 }
 
 pub fn astar<T: State<N>, N: Num + PartialOrd>(initial_state: T, max_cost: N) -> Option<T> {
@@ -24,7 +31,7 @@ pub fn astar<T: State<N>, N: Num + PartialOrd>(initial_state: T, max_cost: N) ->
 
         if state.cost() < max_cost {
             for successor in state.successors() {
-                let fingerprint = successor.fingerprint();
+                let fingerprint = hash(&successor);
 
                 if !seen.contains(&fingerprint) {
                     open_set.push(Reverse(successor));
