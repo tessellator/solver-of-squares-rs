@@ -167,14 +167,9 @@ struct BoardState<'a> {
 
 impl<'a> BoardState<'a> {
     fn move_square(&self, color: &Color) -> Self {
-        let mut new_state = BoardState {
-            game: self.game,
-            cost: self.cost + 1,
-            squares: self.squares.clone(),
-            move_history: self.move_history.clone(),
-        };
+        let mut new_state = self.clone();
+        new_state.cost += 1;
         new_state.move_history.push(color.clone());
-
         new_state.push_square(color, &self.squares.get(color).unwrap().direction);
 
         new_state
