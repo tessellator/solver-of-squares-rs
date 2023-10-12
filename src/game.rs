@@ -233,36 +233,15 @@ impl<'a> BoardState<'a> {
     }
 }
 
-impl<'a> Ord for BoardState<'a> {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        let self_cost = self.cost + self.distance_to_goal();
-        let other_cost = other.cost + other.distance_to_goal();
-
-        self_cost.cmp(&other_cost)
-    }
-}
-
-impl<'a> PartialOrd for BoardState<'a> {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl<'a> PartialEq for BoardState<'a> {
-    fn eq(&self, other: &Self) -> bool {
-        self.fingerprint() == other.fingerprint()
-    }
-}
-
-impl<'a> Eq for BoardState<'a> {}
-
 impl<'a> Hash for BoardState<'a> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.fingerprint().hash(state);
     }
 }
 
-impl<'a> State<i32> for BoardState<'a> {
+impl<'a> State for BoardState<'a> {
+    type Cost = i32;
+
     fn successors(&self) -> Vec<Self> {
         self.squares.keys().map(|k| self.move_square(k)).collect()
     }
@@ -271,7 +250,7 @@ impl<'a> State<i32> for BoardState<'a> {
         self.distance_to_goal() == 0
     }
 
-    fn distance_to_goal(&self) -> i32 {
+    fn distance_to_goal(&self) -> Self::Cost {
         self.game
             .goals
             .iter()
@@ -282,7 +261,7 @@ impl<'a> State<i32> for BoardState<'a> {
             .sum()
     }
 
-    fn cost(&self) -> i32 {
+    fn cost(&self) -> Self::Cost {
         self.cost
     }
 }
