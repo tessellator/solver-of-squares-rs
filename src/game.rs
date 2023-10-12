@@ -83,11 +83,7 @@ impl Game {
             move_history: vec![],
         };
 
-        if let Some(state) = astar(board_state, max_moves) {
-            Some(state.move_history)
-        } else {
-            None
-        }
+        Some(astar(board_state, max_moves)?.move_history)
     }
 }
 
