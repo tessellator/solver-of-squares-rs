@@ -3,10 +3,10 @@ use crate::search::{astar, State};
 use serde::de::{MapAccess, Visitor};
 use serde::Deserialize;
 use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 use std::fmt::{Display, Formatter};
-use std::hash::Hash;
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Hash)]
 #[serde(rename_all = "lowercase")]
 pub enum Direction {
     Up,
@@ -30,7 +30,7 @@ pub type Position2D = [i32; 2];
 
 pub type Color = String;
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Hash)]
 struct Block {
     position: Position2D,
     direction: Direction,
@@ -205,28 +205,16 @@ impl<'a> BoardState<'a> {
             self.push_square(&collided_block, direction);
         }
     }
-
-    fn fingerprint(&self) -> String {
-        let mut keys: Vec<&Color> = self.squares.keys().collect();
-        keys.sort();
-
-        let mut fingerprint = String::new();
-
-        for key in keys {
-            let block = self.squares.get(key).unwrap();
-            fingerprint.push_str(&format!(
-                "{},{},{},{}\t",
-                key, block.position[0], block.position[1], block.direction
-            ));
-        }
-
-        fingerprint
-    }
 }
 
 impl<'a> Hash for BoardState<'a> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.fingerprint().hash(state);
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        let mut keys: Vec<_> = self.squares.keys().collect();
+        keys.sort();
+
+        for key in keys {
+            self.squares.get(key).unwrap().hash(state);
+        }
     }
 }
 
