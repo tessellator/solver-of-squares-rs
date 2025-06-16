@@ -38,17 +38,21 @@ struct Block {
 
 #[derive(Debug)]
 pub struct Game {
-    goals: HashMap<Color, Position2D>,
+    goals: Vec<Option<Position2D>>,
     arrows: HashMap<Position2D, Direction>,
-    initial_state: HashMap<Color, Block>,
+    colors: Vec<Color>,
+    color_idx_map: HashMap<Color, usize>,
+    initial_state: Vec<Block>,
 }
 
 impl Game {
     pub fn new() -> Self {
         Game {
-            goals: HashMap::new(),
+            goals: Vec::new(),
             arrows: HashMap::new(),
-            initial_state: HashMap::new(),
+            color_idx_map: HashMap::new(),
+            colors: Vec::new(),
+            initial_state: Vec::new(),
         }
     }
 
@@ -59,15 +63,21 @@ impl Game {
         starting_position: Position2D,
         goal_position: Option<Position2D>,
     ) {
-        self.initial_state.insert(
-            color.clone(),
-            Block {
+        if self.color_idx_map.get(&color).is_none() {
+            self.color_idx_map.insert(color.clone(), self.colors.len());
+            self.colors.push(color.clone());
+            self.initial_state.push(Block {
                 position: starting_position,
-                direction,
-            },
-        );
-        if let Some(goal_position) = goal_position {
-            self.goals.insert(color, goal_position);
+                direction: direction.clone(),
+            });
+            self.goals.push(goal_position);
+        } else {
+            let idx = self.color_idx_map.get(&color).unwrap();
+            self.initial_state[*idx] = Block {
+                position: starting_position,
+                direction: direction.clone(),
+            };
+            self.goals[*idx] = goal_position;
         }
     }
 
@@ -79,12 +89,17 @@ impl Game {
         let board_state = BoardState {
             game: self,
             cost: 0,
+            previous_move: None,
             squares: self.initial_state.clone(),
-            move_history: vec![],
         };
 
         match astar(board_state, max_moves) {
-            Some(states) => Some(states.map(|state| state.move_history).last().unwrap_or_default()),
+            Some(states) => {
+                Some(states
+                    .filter_map(|state| state.previous_move)
+                    .map(|idx| self.colors[idx].clone())
+                    .collect())
+            },
             None => None,
         }
     }
@@ -164,34 +179,41 @@ impl<'de> Deserialize<'de> for Game {
 struct BoardState<'a> {
     game: &'a Game,
     cost: i32,
-    squares: HashMap<Color, Block>,
-    move_history: Vec<Color>,
+    previous_move: Option<usize>,
+    squares: Vec<Block>,
 }
 
 impl<'a> BoardState<'a> {
-    fn move_square(&self, color: &Color) -> Self {
-        let mut new_state = self.clone();
-        new_state.cost += 1;
-        new_state.move_history.push(color.clone());
-        new_state.push_square(color, &self.squares.get(color).unwrap().direction);
+    fn move_square(&self, color_idx: usize) -> Self {
+        let mut new_state = Self {
+            game: self.game,
+            cost: self.cost + 1,
+            previous_move: Some(color_idx),
+            squares: self.squares.clone(),
+        };
+        let direction = new_state.squares[color_idx].direction.clone();
+        new_state.push_square(color_idx, &direction);
 
         new_state
     }
 
-    fn find_collision_with(&self, color: Color) -> Option<Color> {
-        let block = self.squares.get(&color).unwrap();
+    fn find_collision_with(&self, color_idx: usize) -> Option<usize> {
+        let block = &self.squares[color_idx];
 
-        for (other_color, other_block) in self.squares.iter() {
-            if other_color != &color && other_block.position == block.position {
-                return Some(other_color.clone());
+        for idx in 0..self.squares.len() {
+            if idx != color_idx {
+                let other_block = &self.squares[idx];
+                if other_block.position == block.position {
+                    return Some(idx);
+                }
             }
         }
 
         None
     }
 
-    fn push_square(&mut self, color: &Color, direction: &Direction) {
-        let block = self.squares.get_mut(color).unwrap();
+    fn push_square(&mut self, color_idx: usize, direction: &Direction) {
+        let block = &mut self.squares[color_idx];
 
         block.position = match direction {
             Direction::Up => [block.position[0], block.position[1] + 1],
@@ -204,20 +226,15 @@ impl<'a> BoardState<'a> {
             block.direction = new_direction.clone();
         }
 
-        if let Some(collided_block) = self.find_collision_with(color.clone()) {
-            self.push_square(&collided_block, direction);
+        if let Some(collided_idx) = self.find_collision_with(color_idx) {
+            self.push_square(collided_idx, direction);
         }
     }
 }
 
 impl<'a> Hash for BoardState<'a> {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        let mut keys: Vec<_> = self.squares.keys().collect();
-        keys.sort();
-
-        for key in keys {
-            self.squares.get(key).unwrap().hash(state);
-        }
+        self.squares.hash(state);
     }
 }
 
@@ -225,7 +242,14 @@ impl<'a> State for BoardState<'a> {
     type Cost = i32;
 
     fn successors(&self) -> impl Iterator<Item = Self> {
-        self.squares.keys().map(|k| self.move_square(k))
+        let count = self.game.colors.len();
+        let mut children = Vec::with_capacity(count);
+
+        for color_idx in 0..count {
+            children.push(self.move_square(color_idx));
+        }
+
+        children.into_iter()
     }
 
     fn is_goal(&self) -> bool {
@@ -233,14 +257,16 @@ impl<'a> State for BoardState<'a> {
     }
 
     fn distance_to_goal(&self) -> Self::Cost {
-        self.game
-            .goals
-            .iter()
-            .map(|(color, position)| {
-                let block = self.squares.get(color).unwrap();
-                manhattan_distance(&block.position, position)
-            })
-            .sum()
+        let mut sum = 0;
+
+        for idx in 0..self.game.colors.len() {
+            let block = &self.squares[idx];
+            if let Some(goal_position) = &self.game.goals[idx] {
+                sum += manhattan_distance(&block.position, goal_position);
+            }
+        }
+
+        sum
     }
 
     fn cost(&self) -> Self::Cost {
