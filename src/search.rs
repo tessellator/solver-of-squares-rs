@@ -8,7 +8,7 @@ fn hash(state: &impl Hash) -> u64 {
     hasher.finish()
 }
 
-pub trait State: Hash + Sized {
+pub trait State: Hash {
     type Cost: num::Num + PartialOrd;
 
     fn successors(&self) -> impl Iterator<Item = Self>;
