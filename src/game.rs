@@ -93,15 +93,13 @@ impl Game {
             squares: self.initial_state.clone(),
         };
 
-        match astar(board_state, max_moves) {
-            Some(states) => {
-                Some(states
+        astar(board_state, max_moves)
+            .map(|states| {
+                states
                     .filter_map(|state| state.previous_move)
                     .map(|idx| self.colors[idx].clone())
-                    .collect())
-            },
-            None => None,
-        }
+                    .collect()
+            })
     }
 }
 
