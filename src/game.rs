@@ -3,8 +3,8 @@ use crate::search::{astar, State};
 use serde::de::{MapAccess, Visitor};
 use serde::Deserialize;
 use std::collections::HashMap;
-use std::hash::{Hash, Hasher};
 use std::fmt::{Display, Formatter};
+use std::hash::{Hash, Hasher};
 
 #[derive(Clone, Debug, Deserialize, Hash)]
 #[serde(rename_all = "lowercase")]
@@ -83,7 +83,10 @@ impl Game {
             move_history: vec![],
         };
 
-        Some(astar(board_state, max_moves)?.move_history)
+        match astar(board_state, max_moves) {
+            Some(states) => Some(states.map(|state| state.move_history).last().unwrap_or_default()),
+            None => None,
+        }
     }
 }
 
@@ -221,8 +224,8 @@ impl<'a> Hash for BoardState<'a> {
 impl<'a> State for BoardState<'a> {
     type Cost = i32;
 
-    fn successors(&self) -> Vec<Self> {
-        self.squares.keys().map(|k| self.move_square(k)).collect()
+    fn successors(&self) -> impl Iterator<Item = Self> {
+        self.squares.keys().map(|k| self.move_square(k))
     }
 
     fn is_goal(&self) -> bool {
